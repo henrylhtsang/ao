@@ -82,6 +82,8 @@ class LinearActivationQuantizedTensor(TorchAOBaseTensor):
     def _quantized_linear_op(
         input_tensor: torch.Tensor, weight_tensor: torch.Tensor, bias: torch.Tensor
     ):
+        if input_tensor.numel() == 0:
+            return input_tensor
         input_quant_func = weight_tensor.input_quant_func
         original_weight_tensor = weight_tensor.original_weight_tensor
         quant_kwargs = weight_tensor.quant_kwargs
@@ -242,6 +244,31 @@ def _(func, types, args, kwargs):
         ),
     )
 
+@implements(aten.select.int)
+def _(func, types, args, kwargs):
+    return return_and_correct_aliasing(
+        func,
+        args,
+        kwargs,
+        LinearActivationQuantizedTensor(
+            func(args[0].original_weight_tensor, *args[1:]),
+            args[0].input_quant_func,
+            args[0].quant_kwargs,
+        ),
+    )
+
+@implements(aten.index.Tensor)
+def _(func, types, args, kwargs):
+    return return_and_correct_aliasing(
+        func,
+        args,
+        kwargs,
+        LinearActivationQuantizedTensor(
+            func(args[0].original_weight_tensor, *args[1:]),
+            args[0].input_quant_func,
+            args[0].quant_kwargs,
+        ),
+    )
 
 # this is needed for DTensor.from_local() and for flattening tensor
 @implements(aten.view.default)
